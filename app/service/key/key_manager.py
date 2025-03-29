@@ -29,18 +29,42 @@ class KeyManager:
             self.paid_key_index = -1
             self.paid_key_lock = None
             self.paid_key_failure_counts = {}
+        
+        # 為了確保同一個請求使用同一個密鑰，使用字典記錄已分配的密鑰
+        self.request_key_map = {}
 
-    async def get_paid_key(self) -> str:
+    async def get_paid_key(self, request_id=None) -> str:
         """
         獲取一個付費 API 密鑰，按照順序從列表中取出
+        
+        Args:
+            request_id: 可選的請求 ID，用於確保同一請求獲取相同的密鑰
         """
+        # 如果提供了請求 ID 且已經為該請求分配了密鑰，則返回之前分配的密鑰
+        if request_id and request_id in self.request_key_map:
+            key = self.request_key_map[request_id]
+            logger.info(f"使用已分配的付費密鑰: {key} (請求ID: {request_id})")
+            return key
+        
         # 如果付費鍵是列表並且不為空
         if isinstance(self.paid_key, list) and self.paid_key:
             async with self.paid_key_lock:
+                # 如果列表只有一個元素，直接返回
+                if len(self.paid_key) == 1:
+                    key = self.paid_key[0]
+                    if request_id:
+                        self.request_key_map[request_id] = key
+                    return key
+                
                 # 獲取當前索引對應的密鑰
                 key = self.paid_key[self.paid_key_index]
                 # 更新索引，到達列表尾部時重置為0
                 self.paid_key_index = (self.paid_key_index + 1) % len(self.paid_key)
+                
+                # 如果提供了請求 ID，則記錄該請求使用的密鑰
+                if request_id:
+                    self.request_key_map[request_id] = key
+                    
                 logger.info(f"使用付費密鑰: {key}，下一個索引位置: {self.paid_key_index}")
                 return key
         # 兼容原來的字符串類型
@@ -49,6 +73,12 @@ class KeyManager:
         # 如果付費鍵是空列表，返回空字符串
         else:
             return ""
+            
+    def release_paid_key(self, request_id):
+        """釋放與請求相關聯的付費密鑰"""
+        if request_id in self.request_key_map:
+            del self.request_key_map[request_id]
+            logger.info(f"釋放請求 {request_id} 的付費密鑰")
 
     async def get_next_key(self) -> str:
         """获取下一个API key"""

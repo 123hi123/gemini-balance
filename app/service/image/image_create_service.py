@@ -21,10 +21,10 @@ class ImageCreateService:
         self.image_model = settings.CREATE_IMAGE_MODEL
         self.aspect_ratio = aspect_ratio
 
-    async def get_paid_key(self):
+    async def get_paid_key(self, request_id=None):
         """從鍵管理器獲取付費鍵"""
         key_manager = await get_key_manager_instance()
-        return await key_manager.get_paid_key()
+        return await key_manager.get_paid_key(request_id=request_id)
 
     def parse_prompt_parameters(self, prompt: str) -> tuple:
         """从prompt中解析参数
@@ -59,8 +59,11 @@ class ImageCreateService:
         return prompt, n, aspect_ratio
 
     async def generate_images(self, request: ImageGenerationRequest):
+        # 生成唯一請求ID
+        request_id = f"img_{request.prompt[:20]}_{str(id(request))}"
+        
         # 獲取付費鍵
-        paid_key = await self.get_paid_key()
+        paid_key = await self.get_paid_key(request_id=request_id)
         if not paid_key:
             raise ValueError("No valid paid key available")
         
@@ -91,71 +94,82 @@ class ImageCreateService:
         if prompt_ratio != self.aspect_ratio:
             self.aspect_ratio = prompt_ratio
 
-        response = client.models.generate_images(
-            model=self.image_model,
-            prompt=request.prompt,
-            config=types.GenerateImagesConfig(
-                number_of_images=request.n,
-                output_mime_type="image/png",
-                aspect_ratio=self.aspect_ratio,
-                safety_filter_level="BLOCK_LOW_AND_ABOVE",
-                person_generation="ALLOW_ADULT",
-                # language="auto"
-            ),
-        )
+        try:
+            response = client.models.generate_images(
+                model=self.image_model,
+                prompt=request.prompt,
+                config=types.GenerateImagesConfig(
+                    number_of_images=request.n,
+                    output_mime_type="image/png",
+                    aspect_ratio=self.aspect_ratio,
+                    safety_filter_level="BLOCK_LOW_AND_ABOVE",
+                    person_generation="ALLOW_ADULT",
+                    # language="auto"
+                ),
+            )
 
-        if response.generated_images:
-            images_data = []
-            for index, generated_image in enumerate(response.generated_images):
-                image_data = generated_image.image.image_bytes
-                image_uploader = None
+            if response.generated_images:
+                images_data = []
+                for index, generated_image in enumerate(response.generated_images):
+                    image_data = generated_image.image.image_bytes
+                    image_uploader = None
 
-                if request.response_format == "b64_json":
-                    base64_image = base64.b64encode(image_data).decode("utf-8")
-                    images_data.append(
-                        {"b64_json": base64_image, "revised_prompt": request.prompt}
-                    )
-                else:
-                    current_date = time.strftime("%Y/%m/%d")
-                    filename = f"{current_date}/{uuid.uuid4().hex[:8]}.png"
-
-                    if settings.UPLOAD_PROVIDER == "smms":
-                        image_uploader = ImageUploaderFactory.create(
-                            provider=settings.UPLOAD_PROVIDER,
-                            api_key=settings.SMMS_SECRET_TOKEN,
-                        )
-                    elif settings.UPLOAD_PROVIDER == "picgo":
-                        image_uploader = ImageUploaderFactory.create(
-                            provider=settings.UPLOAD_PROVIDER,
-                            api_key=settings.PICGO_API_KEY,
-                        )
-                    elif settings.UPLOAD_PROVIDER == "cloudflare_imgbed":
-                        image_uploader = ImageUploaderFactory.create(
-                            provider=settings.UPLOAD_PROVIDER,
-                            base_url=settings.CLOUDFLARE_IMGBED_URL,
-                            auth_code=settings.CLOUDFLARE_IMGBED_AUTH_CODE,
+                    if request.response_format == "b64_json":
+                        base64_image = base64.b64encode(image_data).decode("utf-8")
+                        images_data.append(
+                            {"b64_json": base64_image, "revised_prompt": request.prompt}
                         )
                     else:
-                        raise ValueError(
-                            f"Unsupported upload provider: {settings.UPLOAD_PROVIDER}"
+                        current_date = time.strftime("%Y/%m/%d")
+                        filename = f"{current_date}/{uuid.uuid4().hex[:8]}.png"
+
+                        if settings.UPLOAD_PROVIDER == "smms":
+                            image_uploader = ImageUploaderFactory.create(
+                                provider=settings.UPLOAD_PROVIDER,
+                                api_key=settings.SMMS_SECRET_TOKEN,
+                            )
+                        elif settings.UPLOAD_PROVIDER == "picgo":
+                            image_uploader = ImageUploaderFactory.create(
+                                provider=settings.UPLOAD_PROVIDER,
+                                api_key=settings.PICGO_API_KEY,
+                            )
+                        elif settings.UPLOAD_PROVIDER == "cloudflare_imgbed":
+                            image_uploader = ImageUploaderFactory.create(
+                                provider=settings.UPLOAD_PROVIDER,
+                                base_url=settings.CLOUDFLARE_IMGBED_URL,
+                                auth_code=settings.CLOUDFLARE_IMGBED_AUTH_CODE,
+                            )
+                        else:
+                            raise ValueError(
+                                f"Unsupported upload provider: {settings.UPLOAD_PROVIDER}"
+                            )
+
+                        upload_response = image_uploader.upload(image_data, filename)
+
+                        images_data.append(
+                            {
+                                "url": f"{upload_response.data.url}",
+                                "revised_prompt": request.prompt,
+                            }
                         )
 
-                    upload_response = image_uploader.upload(image_data, filename)
-
-                    images_data.append(
-                        {
-                            "url": f"{upload_response.data.url}",
-                            "revised_prompt": request.prompt,
-                        }
-                    )
-
-            response_data = {
-                "created": int(time.time()),  # Current timestamp
-                "data": images_data,
-            }
-            return response_data
-        else:
-            raise Exception("I can't generate these images")
+                response_data = {
+                    "created": int(time.time()),  # Current timestamp
+                    "data": images_data,
+                }
+                
+                # 釋放請求ID關聯的密鑰
+                key_manager = await get_key_manager_instance()
+                key_manager.release_paid_key(request_id)
+                
+                return response_data
+            else:
+                raise Exception("I can't generate these images")
+        except Exception as e:
+            # 發生異常時釋放請求ID關聯的密鑰
+            key_manager = await get_key_manager_instance()
+            key_manager.release_paid_key(request_id)
+            raise e
 
     async def generate_images_chat(self, request: ImageGenerationRequest) -> str:
         response = await self.generate_images(request)

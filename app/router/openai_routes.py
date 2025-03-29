@@ -64,9 +64,12 @@ async def chat_completion(
     api_key: str = Depends(get_next_working_key_wrapper),
     key_manager: KeyManager = Depends(get_key_manager),
 ):
+    # 生成唯一請求ID
+    request_id = f"chat_{str(request.model)}_{str(id(request))}"
+    
     # 如果model是imagen3,使用paid_key
     if request.model == f"{settings.CREATE_IMAGE_MODEL}-chat":
-        api_key = await key_manager.get_paid_key()
+        api_key = await key_manager.get_paid_key(request_id=request_id)
     chat_service = OpenAIChatService(settings.BASE_URL, key_manager)
     logger.info("-" * 50 + "chat_completion" + "-" * 50)
     logger.info(f"Handling chat completion request for model: {request.model}")
@@ -88,9 +91,15 @@ async def chat_completion(
         if request.stream:
             return StreamingResponse(response, media_type="text/event-stream")
         logger.info("Chat completion request successful")
+        # 釋放請求ID關聯的密鑰
+        if request.model == f"{settings.CREATE_IMAGE_MODEL}-chat":
+            key_manager.release_paid_key(request_id)
         return response
     except Exception as e:
         logger.error(f"Chat completion failed after retries: {str(e)}")
+        # 即使發生錯誤，也釋放請求ID關聯的密鑰
+        if request.model == f"{settings.CREATE_IMAGE_MODEL}-chat":
+            key_manager.release_paid_key(request_id)
         raise HTTPException(status_code=500, detail="Chat completion failed") from e
 
 
