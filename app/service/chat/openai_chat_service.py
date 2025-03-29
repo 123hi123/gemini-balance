@@ -260,7 +260,7 @@ class OpenAIChatService:
 
         image_generate_request = ImageGenerationRequest()
         image_generate_request.prompt = request.messages[-1]["content"]
-        image_res = self.image_create_service.generate_images_chat(
+        image_res = await self.image_create_service.generate_images_chat(
             image_generate_request
         )
 

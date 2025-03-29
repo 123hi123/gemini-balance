@@ -1,6 +1,7 @@
 import base64
 import time
 import uuid
+import random
 
 from google import genai
 from google.genai import types
@@ -10,6 +11,7 @@ from app.core.constants import VALID_IMAGE_RATIOS
 from app.domain.openai_models import ImageGenerationRequest
 from app.log.logger import get_image_create_logger
 from app.utils.uploader import ImageUploaderFactory
+from app.service.key.key_manager import get_key_manager_instance
 
 logger = get_image_create_logger()
 
@@ -17,8 +19,12 @@ logger = get_image_create_logger()
 class ImageCreateService:
     def __init__(self, aspect_ratio="1:1"):
         self.image_model = settings.CREATE_IMAGE_MODEL
-        self.paid_key = settings.PAID_KEY
         self.aspect_ratio = aspect_ratio
+
+    async def get_paid_key(self):
+        """從鍵管理器獲取付費鍵"""
+        key_manager = await get_key_manager_instance()
+        return await key_manager.get_paid_key()
 
     def parse_prompt_parameters(self, prompt: str) -> tuple:
         """从prompt中解析参数
@@ -52,8 +58,13 @@ class ImageCreateService:
 
         return prompt, n, aspect_ratio
 
-    def generate_images(self, request: ImageGenerationRequest):
-        client = genai.Client(api_key=self.paid_key)
+    async def generate_images(self, request: ImageGenerationRequest):
+        # 獲取付費鍵
+        paid_key = await self.get_paid_key()
+        if not paid_key:
+            raise ValueError("No valid paid key available")
+        
+        client = genai.Client(api_key=paid_key)
 
         if request.size == "1024x1024":
             self.aspect_ratio = "1:1"
@@ -146,8 +157,8 @@ class ImageCreateService:
         else:
             raise Exception("I can't generate these images")
 
-    def generate_images_chat(self, request: ImageGenerationRequest) -> str:
-        response = self.generate_images(request)
+    async def generate_images_chat(self, request: ImageGenerationRequest) -> str:
+        response = await self.generate_images(request)
         image_datas = response["data"]
         if image_datas:
             markdown_images = []

@@ -104,7 +104,7 @@ async def generate_image(
     logger.info(f"Handling image generation request for prompt: {request.prompt}")
 
     try:
-        response = image_create_service.generate_images(request)
+        response = await image_create_service.generate_images(request)
         logger.info("Image generation request successful")
         return response
     except Exception as e:

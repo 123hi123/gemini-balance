@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     SHOW_THINKING_PROCESS: bool = True
     
     # 图像生成相关配置
-    PAID_KEY: str = ""
+    PAID_KEY: List[str] = []
     CREATE_IMAGE_MODEL: str = DEFAULT_CREATE_IMAGE_MODEL
     UPLOAD_PROVIDER: str = "smms"
     SMMS_SECRET_TOKEN: str = ""

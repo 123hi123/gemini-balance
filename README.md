@@ -73,7 +73,7 @@
     FILTERED_MODELS=["gemini-1.0-pro-vision-latest", "gemini-pro-vision", "chat-bison-001", "text-bison-001", "embedding-gecko-001"] # 被禁用的模型列表
 
     # 图片生成配置
-    PAID_KEY="your-paid-api-key"  # 付费版API Key，用于图片生成等高级功能
+    PAID_KEY=["your-paid-api-key-1", "your-paid-api-key-2"]  # 付费版API Key，用于图片生成等高级功能
     CREATE_IMAGE_MODEL="imagen-3.0-generate-002"  # 图片生成模型，默认使用imagen-3.0
     
     # 图片上传配置
@@ -142,8 +142,9 @@
    #### 图片生成配置
 
     - `PAID_KEY`: 付费版 API Key
+      - 格式: 字符串或 JSON 数组字符串
       - 用途: 用于图片生成等高级功能
-      - 说明: 需要单独申请的付费版 Key
+      - 说明: 支持单个密钥或多个密钥轮询使用，提高并发能力
     - `CREATE_IMAGE_MODEL`: 图片生成模型
       - 默认值: `imagen-3.0-generate-002`
       - 说明: 当前支持的最新图片生成模型
