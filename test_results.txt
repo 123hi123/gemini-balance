@@ -1,0 +1,25 @@
+付費密鑰列表: ['key-A', 'key-B', 'key-C']
+
+===== 測試不使用請求ID =====
+[分配新密鑰] key-A，下一個索引: 1
+[分配新密鑰] key-B，下一個索引: 2
+[分配新密鑰] key-C，下一個索引: 0
+❌ 問題複現：獲取了 3 個不同的密鑰: ['key-A', 'key-B', 'key-C']
+
+已重置索引為0
+
+===== 測試使用請求ID =====
+[分配新密鑰] key-A，下一個索引: 1
+[使用已分配密鑰] key-A，請求ID: request-1
+✅ 請求 request-1: 兩次獲取了相同的密鑰 key-A
+[釋放密鑰] key-A，請求ID: request-1
+[分配新密鑰] key-B，下一個索引: 2
+[使用已分配密鑰] key-B，請求ID: request-2
+✅ 請求 request-2: 兩次獲取了相同的密鑰 key-B
+[釋放密鑰] key-B，請求ID: request-2
+[分配新密鑰] key-C，下一個索引: 0
+[使用已分配密鑰] key-C，請求ID: request-3
+✅ 請求 request-3: 兩次獲取了相同的密鑰 key-C
+[釋放密鑰] key-C，請求ID: request-3
+
+測試完成！

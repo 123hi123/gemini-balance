@@ -17,32 +17,72 @@ class KeyManager:
         self.key_failure_counts: Dict[str, int] = {key: 0 for key in api_keys}
         self.MAX_FAILURES = settings.MAX_FAILURES
         self.paid_key = settings.PAID_KEY
-        # 如果付費鍵是列表且不為空，創建付費鍵的輪詢器
+        
+        # 使用索引而不是循環器來實現順序輪詢
         if isinstance(self.paid_key, list) and self.paid_key:
-            self.paid_key_cycle = cycle(self.paid_key)
-            self.paid_key_cycle_lock = asyncio.Lock()
+            self.paid_key_index = 0
+            self.paid_key_lock = asyncio.Lock()
             # 同時追蹤付費鍵的失敗次數
             self.paid_key_failure_counts: Dict[str, int] = {key: 0 for key in self.paid_key}
             # 添加付費鍵的調用次數計數器
             self.paid_key_usage_counts: Dict[str, int] = {key: 0 for key in self.paid_key}
         else:
             # 兼容原來的字符串類型
-            self.paid_key_cycle = None
-            self.paid_key_cycle_lock = None
+            self.paid_key_index = -1
+            self.paid_key_lock = None
             self.paid_key_failure_counts = {}
+<<<<<<< HEAD
             self.paid_key_usage_counts = {}
             if isinstance(self.paid_key, str) and self.paid_key:
                 self.paid_key_usage_counts[self.paid_key] = 0
+=======
+        
+        # 為了確保同一個請求使用同一個密鑰，使用字典記錄已分配的密鑰
+        self.request_key_map = {}
+>>>>>>> e037c4c27fccf4abbe91c3a32b3af5094eade273
 
-    async def get_paid_key(self) -> str:
+    async def get_paid_key(self, request_id=None) -> str:
         """
-        獲取一個付費 API 密鑰，如果配置為列表則循環使用
+        獲取一個付費 API 密鑰，按照順序從列表中取出
+        
+        Args:
+            request_id: 可選的請求 ID，用於確保同一請求獲取相同的密鑰
         """
+<<<<<<< HEAD
         selected_key = ""
         # 如果付費鍵是列表並且有設置輪詢器，則使用輪詢方式獲取
         if self.paid_key_cycle is not None:
             async with self.paid_key_cycle_lock:
                 selected_key = next(self.paid_key_cycle)
+=======
+        # 如果提供了請求 ID 且已經為該請求分配了密鑰，則返回之前分配的密鑰
+        if request_id and request_id in self.request_key_map:
+            key = self.request_key_map[request_id]
+            logger.info(f"使用已分配的付費密鑰: {key} (請求ID: {request_id})")
+            return key
+        
+        # 如果付費鍵是列表並且不為空
+        if isinstance(self.paid_key, list) and self.paid_key:
+            async with self.paid_key_lock:
+                # 如果列表只有一個元素，直接返回
+                if len(self.paid_key) == 1:
+                    key = self.paid_key[0]
+                    if request_id:
+                        self.request_key_map[request_id] = key
+                    return key
+                
+                # 獲取當前索引對應的密鑰
+                key = self.paid_key[self.paid_key_index]
+                # 更新索引，到達列表尾部時重置為0
+                self.paid_key_index = (self.paid_key_index + 1) % len(self.paid_key)
+                
+                # 如果提供了請求 ID，則記錄該請求使用的密鑰
+                if request_id:
+                    self.request_key_map[request_id] = key
+                    
+                logger.info(f"使用付費密鑰: {key}，下一個索引位置: {self.paid_key_index}")
+                return key
+>>>>>>> e037c4c27fccf4abbe91c3a32b3af5094eade273
         # 兼容原來的字符串類型
         elif isinstance(self.paid_key, str):
             selected_key = self.paid_key
@@ -50,6 +90,7 @@ class KeyManager:
         else:
             return ""
             
+<<<<<<< HEAD
         return selected_key
 
     async def increment_paid_key_usage(self, key: str) -> None:
@@ -75,6 +116,13 @@ class KeyManager:
         async with self.failure_count_lock:
             # 返回一個副本以避免並發修改問題
             return dict(self.paid_key_usage_counts)
+=======
+    def release_paid_key(self, request_id):
+        """釋放與請求相關聯的付費密鑰"""
+        if request_id in self.request_key_map:
+            del self.request_key_map[request_id]
+            logger.info(f"釋放請求 {request_id} 的付費密鑰")
+>>>>>>> e037c4c27fccf4abbe91c3a32b3af5094eade273
 
     async def get_next_key(self) -> str:
         """获取下一个API key"""
