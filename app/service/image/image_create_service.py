@@ -24,7 +24,11 @@ class ImageCreateService:
     async def get_paid_key(self):
         """從鍵管理器獲取付費鍵"""
         key_manager = await get_key_manager_instance()
-        return await key_manager.get_paid_key()
+        paid_key = await key_manager.get_paid_key()
+        if paid_key:
+            # 增加調用計數
+            await key_manager.increment_paid_key_usage(paid_key)
+        return paid_key
 
     def parse_prompt_parameters(self, prompt: str) -> tuple:
         """从prompt中解析参数

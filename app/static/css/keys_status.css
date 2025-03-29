@@ -247,21 +247,51 @@ li:hover {
 }
 
 .status-badge {
-    padding: 4px 12px;
-    border-radius: 15px;
-    font-size: 0.9em;
-    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 4px;
     margin-right: 10px;
+    font-size: 0.8em;
+    font-weight: bold;
 }
 
 .status-valid {
-    background: rgba(39, 174, 96, 0.1);
+    background-color: rgba(39, 174, 96, 0.15);
     color: #27ae60;
 }
 
 .status-invalid {
-    background: rgba(231, 76, 60, 0.1);
+    background-color: rgba(231, 76, 60, 0.15);
     color: #e74c3c;
+}
+
+.status-paid {
+    background-color: rgba(243, 156, 18, 0.15);
+    color: #f39c12;
+}
+
+.usage-count {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 15px;
+    color: #f39c12;
+    font-weight: 500;
+}
+
+.usage-count i {
+    margin-right: 5px;
+}
+
+.total-paid-usage {
+    margin-left: 20px;
+    color: #f39c12;
+    display: inline-flex;
+    align-items: center;
+}
+
+.total-paid-usage i {
+    margin-right: 5px;
 }
 
 .scroll-buttons {

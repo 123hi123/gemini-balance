@@ -83,15 +83,21 @@ def setup_page_routes(app: FastAPI) -> None:
 
             key_manager = await get_key_manager_instance()
             keys_status = await key_manager.get_keys_by_status()
+            paid_keys_usage = await key_manager.get_paid_keys_usage()
             total = len(keys_status["valid_keys"]) + len(keys_status["invalid_keys"])
-            logger.info(f"Keys status retrieved successfully. Total keys: {total}")
+            total_paid_usage = sum(paid_keys_usage.values()) if paid_keys_usage else 0
+            
+            logger.info(f"Keys status retrieved successfully. Total keys: {total}, Total paid usage: {total_paid_usage}")
+            
             return templates.TemplateResponse(
                 "keys_status.html",
                 {
                     "request": request,
                     "valid_keys": keys_status["valid_keys"],
                     "invalid_keys": keys_status["invalid_keys"],
+                    "paid_keys_usage": paid_keys_usage,
                     "total": total,
+                    "total_paid_usage": total_paid_usage,
                 },
             )
         except Exception as e:

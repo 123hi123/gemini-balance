@@ -257,7 +257,10 @@ class OpenAIChatService:
         self,
         request: ChatRequest,
     ) -> Union[Dict[str, Any], AsyncGenerator[str, None]]:
-
+        """
+        使用圖像生成服務創建聊天完成
+        注意: 該方法會自動通過 ImageCreateService 增加付費密鑰的使用計數
+        """
         image_generate_request = ImageGenerationRequest()
         image_generate_request.prompt = request.messages[-1]["content"]
         image_res = await self.image_create_service.generate_images_chat(

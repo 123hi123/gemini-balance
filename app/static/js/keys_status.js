@@ -26,16 +26,27 @@ function copyToClipboard(text) {
 }
 
 function copyKeys(type) {
-    const keys = Array.from(document.querySelectorAll(`#${type}Keys .key-text`)).map(span => span.textContent.trim());
+    let keys;
+    if (type === 'valid') {
+        keys = Array.from(document.querySelectorAll(`#validKeys .key-text`)).map(span => span.textContent.trim());
+    } else if (type === 'invalid') {
+        keys = Array.from(document.querySelectorAll(`#invalidKeys .key-text`)).map(span => span.textContent.trim());
+    } else if (type === 'paid') {
+        keys = Array.from(document.querySelectorAll(`#paidKeysUsage .key-text`)).map(span => span.textContent.trim());
+    } else {
+        return;
+    }
+    
     const jsonKeys = JSON.stringify(keys);
     
     copyToClipboard(jsonKeys)
         .then(() => {
-            showCopyStatus(`已成功复制${type === 'valid' ? '有效' : '无效'}密钥到剪贴板`);
+            const typeText = type === 'valid' ? '有效' : (type === 'invalid' ? '无效' : '付费');
+            showCopyStatus(`已成功复制${typeText}密钥到剪贴板`);
         })
         .catch((err) => {
             console.error('无法复制文本: ', err);
-            showCopyStatus('复制失败，请重试');
+            showCopyStatus('复制失败，请重试', 'error');
         });
 }
 

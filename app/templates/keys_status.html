@@ -20,6 +20,46 @@
             <i class="fas fa-sync-alt"></i>
         </button>
         <h1>API密钥状态</h1>
+        
+        <!-- 付費密鑰使用統計 -->
+        <div class="key-list">
+            <h2 onclick="toggleSection(this, 'paidKeysUsage')">
+                <span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                    <i class="fas fa-dollar-sign" style="color: #f39c12;"></i>
+                    付费密钥使用统计
+                </span>
+                <button class="copy-btn" onclick="event.stopPropagation(); copyKeys('paid')">
+                    <i class="fas fa-copy"></i>
+                    批量复制
+                </button>
+            </h2>
+            <div class="key-content">
+                <ul id="paidKeysUsage">
+                {% for key, usage_count in paid_keys_usage.items() %}
+                    <li>
+                        <div class="key-info">
+                            <span class="status-badge status-paid">
+                                <i class="fas fa-dollar-sign"></i> 付费
+                            </span>
+                            <span class="key-text">{{ key }}</span>
+                            <span class="usage-count">
+                                <i class="fas fa-chart-line"></i>
+                                使用次数: {{ usage_count }}
+                            </span>
+                        </div>
+                        <div class="key-actions">
+                            <button class="copy-btn" onclick="copyKey('{{ key }}')">
+                                <i class="fas fa-copy"></i>
+                                复制
+                            </button>
+                        </div>
+                    </li>
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
         <div class="key-list">
             <h2 onclick="toggleSection(this, 'validKeys')">
                 <span>
@@ -104,6 +144,11 @@
         </div>
         <div class="total">
             <i class="fas fa-key"></i> 总密钥数：{{ total }}
+            {% if total_paid_usage is defined %}
+            <span class="total-paid-usage">
+                <i class="fas fa-dollar-sign"></i> 付费密钥总调用次数：{{ total_paid_usage }}
+            </span>
+            {% endif %}
         </div>
     </div>
 

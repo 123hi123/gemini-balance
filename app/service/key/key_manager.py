@@ -23,26 +23,58 @@ class KeyManager:
             self.paid_key_cycle_lock = asyncio.Lock()
             # 同時追蹤付費鍵的失敗次數
             self.paid_key_failure_counts: Dict[str, int] = {key: 0 for key in self.paid_key}
+            # 添加付費鍵的調用次數計數器
+            self.paid_key_usage_counts: Dict[str, int] = {key: 0 for key in self.paid_key}
         else:
             # 兼容原來的字符串類型
             self.paid_key_cycle = None
             self.paid_key_cycle_lock = None
             self.paid_key_failure_counts = {}
+            self.paid_key_usage_counts = {}
+            if isinstance(self.paid_key, str) and self.paid_key:
+                self.paid_key_usage_counts[self.paid_key] = 0
 
     async def get_paid_key(self) -> str:
         """
         獲取一個付費 API 密鑰，如果配置為列表則循環使用
         """
+        selected_key = ""
         # 如果付費鍵是列表並且有設置輪詢器，則使用輪詢方式獲取
         if self.paid_key_cycle is not None:
             async with self.paid_key_cycle_lock:
-                return next(self.paid_key_cycle)
+                selected_key = next(self.paid_key_cycle)
         # 兼容原來的字符串類型
         elif isinstance(self.paid_key, str):
-            return self.paid_key
+            selected_key = self.paid_key
         # 如果付費鍵是空列表，返回空字符串
         else:
             return ""
+            
+        return selected_key
+
+    async def increment_paid_key_usage(self, key: str) -> None:
+        """
+        增加特定付費密鑰的使用計數
+        """
+        if not key:
+            return
+            
+        async with self.failure_count_lock:  # 重用現有的鎖以避免競爭條件
+            if key in self.paid_key_usage_counts:
+                self.paid_key_usage_counts[key] += 1
+            else:
+                # 如果是第一次使用這個密鑰，初始化計數器
+                self.paid_key_usage_counts[key] = 1
+                
+        logger.info(f"Paid key {key} usage count: {self.paid_key_usage_counts.get(key, 0)}")
+
+    async def get_paid_keys_usage(self) -> Dict[str, int]:
+        """
+        獲取所有付費密鑰的使用統計
+        """
+        async with self.failure_count_lock:
+            # 返回一個副本以避免並發修改問題
+            return dict(self.paid_key_usage_counts)
 
     async def get_next_key(self) -> str:
         """获取下一个API key"""

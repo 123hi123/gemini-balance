@@ -147,11 +147,14 @@ async def get_keys_list(
     logger.info("Handling keys list request")
     try:
         keys_status = await key_manager.get_keys_by_status()
+        paid_keys_usage = await key_manager.get_paid_keys_usage()
+        
         return {
             "status": "success",
             "data": {
                 "valid_keys": keys_status["valid_keys"],
                 "invalid_keys": keys_status["invalid_keys"],
+                "paid_keys_usage": paid_keys_usage
             },
             "total": len(keys_status["valid_keys"]) + len(keys_status["invalid_keys"]),
         }
@@ -159,4 +162,30 @@ async def get_keys_list(
         logger.error(f"Error getting keys list: {str(e)}")
         raise HTTPException(
             status_code=500, detail="Internal server error while fetching keys list"
+        ) from e
+
+
+@router.get("/v1/paid-keys/usage")
+@router.get("/hf/v1/paid-keys/usage")
+async def get_paid_keys_usage(
+    _=Depends(security_service.verify_auth_token),
+    key_manager: KeyManager = Depends(get_key_manager),
+):
+    """獲取付費密鑰的使用統計"""
+    logger.info("-" * 50 + "get_paid_keys_usage" + "-" * 50)
+    logger.info("Handling paid keys usage request")
+    try:
+        paid_keys_usage = await key_manager.get_paid_keys_usage()
+        
+        return {
+            "status": "success",
+            "data": {
+                "paid_keys_usage": paid_keys_usage
+            },
+            "total_usage": sum(paid_keys_usage.values())
+        }
+    except Exception as e:
+        logger.error(f"Error getting paid keys usage: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail="Internal server error while fetching paid keys usage"
         ) from e
