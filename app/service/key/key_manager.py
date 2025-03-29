@@ -17,26 +17,32 @@ class KeyManager:
         self.key_failure_counts: Dict[str, int] = {key: 0 for key in api_keys}
         self.MAX_FAILURES = settings.MAX_FAILURES
         self.paid_key = settings.PAID_KEY
-        # 如果付費鍵是列表且不為空，創建付費鍵的輪詢器
+        
+        # 使用索引而不是循環器來實現順序輪詢
         if isinstance(self.paid_key, list) and self.paid_key:
-            self.paid_key_cycle = cycle(self.paid_key)
-            self.paid_key_cycle_lock = asyncio.Lock()
+            self.paid_key_index = 0
+            self.paid_key_lock = asyncio.Lock()
             # 同時追蹤付費鍵的失敗次數
             self.paid_key_failure_counts: Dict[str, int] = {key: 0 for key in self.paid_key}
         else:
             # 兼容原來的字符串類型
-            self.paid_key_cycle = None
-            self.paid_key_cycle_lock = None
+            self.paid_key_index = -1
+            self.paid_key_lock = None
             self.paid_key_failure_counts = {}
 
     async def get_paid_key(self) -> str:
         """
-        獲取一個付費 API 密鑰，如果配置為列表則循環使用
+        獲取一個付費 API 密鑰，按照順序從列表中取出
         """
-        # 如果付費鍵是列表並且有設置輪詢器，則使用輪詢方式獲取
-        if self.paid_key_cycle is not None:
-            async with self.paid_key_cycle_lock:
-                return next(self.paid_key_cycle)
+        # 如果付費鍵是列表並且不為空
+        if isinstance(self.paid_key, list) and self.paid_key:
+            async with self.paid_key_lock:
+                # 獲取當前索引對應的密鑰
+                key = self.paid_key[self.paid_key_index]
+                # 更新索引，到達列表尾部時重置為0
+                self.paid_key_index = (self.paid_key_index + 1) % len(self.paid_key)
+                logger.info(f"使用付費密鑰: {key}，下一個索引位置: {self.paid_key_index}")
+                return key
         # 兼容原來的字符串類型
         elif isinstance(self.paid_key, str):
             return self.paid_key
